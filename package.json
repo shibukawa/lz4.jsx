@@ -1,0 +1,46 @@
+{
+  "name": "lz4.jsx",
+  "version": "0.1.0",
+  "description": "LZ4 compress, decompress library for JSX",
+  "scripts": {
+    "build": "./node_modules/.bin/grunt build",
+    "test": "./node_modules/.bin/grunt test",
+    "doc": "./node_modules/.bin/grunt doc"
+  },
+  "engines": {
+    "node": ">=0.8.0"
+  },
+  "keywords": [
+    "jsx",
+    "altjs",
+    "lib",
+    "js",
+    "amd",
+    "commonjs",
+    "nodejs",
+    "browser"
+  ],
+  "main": "./src/lz4_decoder.jsx",
+  "homepage": "https://github.com/shibukawa/lz4.jsx",
+  "bugs": {
+    "url": "https://github.com/shibukawa/lz4.jsx/issues"
+  },
+  "directories": {
+    "doc": "./doc",
+    "lib": "./lib",
+    "test": "./test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/shibukawa/lz4.jsx.git"
+  },
+  "devDependencies": {
+    "grunt": "~0.4.1",
+    "grunt-cli": "~0.1.10",
+    "grunt-contrib-watch": "~0.5.3",
+    "grunt-jsx": ">=0.1.5",
+    "xxhash.jsx": "^0.1.1"
+  },
+  "author": "shibukawa.yoshiki",
+  "license": "Modified BSD License (BSD 3-clause)"
+}
