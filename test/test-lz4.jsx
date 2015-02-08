@@ -17,8 +17,12 @@ class _Test extends TestCase
 {
     function test_sample() : void
     {
-        var original = Converter.convert(node.fs.readFileSync(node.__dirname + "/test/orig.txt"));
-        var input = Converter.convert(node.fs.readFileSync(node.__dirname + "/test/hc.lz4"));
+        //var original = Converter.convert(node.fs.readFileSync(node.__dirname + "/test/orig.txt"));
+        //var input = Converter.convert(node.fs.readFileSync(node.__dirname + "/test/hc.lz4"));
+        //var original = Converter.convert(node.fs.readFileSync(node.__dirname + "/test/sample.json"));
+        //var input = Converter.convert(node.fs.readFileSync(node.__dirname + "/test/sample.json.lz4"));
+        var original = Converter.convert(node.fs.readFileSync(node.__dirname + "/test/sample2.json"));
+        var input = Converter.convert(node.fs.readFileSync(node.__dirname + "/test/sample2.json.lz4"));
         var obj = new Lz4Decoder();
         var output = obj.decode(input);
         this.expect(output.byteLength).toBe(original.byteLength);
@@ -27,6 +31,5 @@ class _Test extends TestCase
         for (var i = 0; i < uoutput.length; i++) {
             this.expect(uoutput[i]).toBe(uoriginal[i]);
         }
-        //this.expect(obj.greeting()).toBe("Hello World");
     }
 }
