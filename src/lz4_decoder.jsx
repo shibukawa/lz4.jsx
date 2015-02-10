@@ -13,6 +13,35 @@ class Lz4Descriptor {
     var dictId : int;
 }
 
+native class _Memcpy {
+    static function memcpy(buffer : Uint8Array, dstIndex : int, srcIndex : int, length : int) : void;
+} = '''(function () {
+    if (Uint8Array.prototype.copyWithin) {
+        return {
+            memcpy: function (buffer, dstIndex, srcIndex, length) {
+                if (srcIndex > dstIndex) {
+                    var endIndex = srcIndex + length;
+                    while (srcIndex < endIndex) {
+                        buffer[dstIndex++] = buffer[srcIndex++];
+                    }
+                } else {
+                    buffer.copyWithin(dstIndex, srcIndex, length);
+                }
+            }
+        };
+    } else {
+        return {
+            memcpy: function (buffer, dstIndex, srcIndex, length) {
+                var endIndex = srcIndex + length;
+                while (srcIndex < endIndex) {
+                    buffer[dstIndex++] = buffer[srcIndex++];
+                }
+            }
+        };
+    }
+})();
+''';
+
 class Lz4Decoder {
     var _buffer : Uint8Array;
     var _pos : int;
@@ -357,8 +386,6 @@ class Lz4Decoder {
         var sIdx = 0;
         var eIdx = (input.length - sIdx);
         var output8 = new Uint8Array(output);
-        var output16 = new Uint16Array(output);
-        var output32 = new Uint32Array(output);
         // Process each sequence in the incoming data
         for (var i = sIdx, n = eIdx, j = 0; i < n;) {
             var token = input[i++];
@@ -402,157 +429,10 @@ class Lz4Decoder {
             }
 
             // Copy the match
-            this._memcpy(output8, output16, output32, j, j - offset, match_length + 4);
+            _Memcpy.memcpy(output8, j, j - offset, match_length + 4);
             j += match_length + 4;
         }
 
         return j;
-    }
-
-    /*
-     * Copy memory block within same ArrayBuffer like ArrayBuffer.copyWithin()
-     */
-    function _memcpy(output8 : Uint8Array, output16 : Uint16Array, output32 : Uint32Array, dstIndex : int, srcIndex : int, length : int) : void {
-        if ((dstIndex - srcIndex) < length) {
-            Lz4Decoder._copyUint8(output8, dstIndex, srcIndex, length);
-            return;
-        }
-        switch ((srcIndex % 4) * 4 + dstIndex % 4) {
-        case 0: // 0 vs 0
-            Lz4Decoder._copyUint32(output32, dstIndex >>> 2, srcIndex >>> 2, length >>> 2);
-            switch (length % 4) {
-            case 1:
-                output8[dstIndex + length - 1] = output8[srcIndex + length - 1];
-                break;
-            case 2:
-                output16[(dstIndex + length - 2) >>> 1] = output16[(srcIndex + length - 2) >>> 1];
-                break;
-            case 3:
-                output16[(dstIndex + length - 2) >>> 1] = output16[(srcIndex + length - 2) >>> 1];
-                output8[dstIndex + length - 1] = output8[srcIndex + length - 1];
-                break;
-            }
-            break;
-        case 1: // 0 vs 1
-            Lz4Decoder._copyUint8(output8, dstIndex, srcIndex, length);
-            break;
-        case 2: // 0 vs 2
-            Lz4Decoder._copyUint16(output16, dstIndex >>> 1, srcIndex >>> 1, length >>> 1);
-            if (length % 2) {
-                output8[dstIndex + length - 1] = output8[srcIndex + length - 1];
-            }
-            break;
-        case 3: // 0 vs 3
-            Lz4Decoder._copyUint8(output8, dstIndex, srcIndex, length);
-            break;
-        case 4: // 1 vs 0
-            Lz4Decoder._copyUint8(output8, dstIndex, srcIndex, length);
-            break;
-        case 5: // 1 vs 1
-            output8[dstIndex] = output8[srcIndex];
-            output16[(dstIndex + 1) >>> 1] = output16[(srcIndex + 1) >>> 1];
-            Lz4Decoder._copyUint32(output32, (3 + dstIndex) >>> 2, (3 + srcIndex) >>> 2, (length - 3) >>> 2);
-            switch (length % 4) {
-            case 0:
-                output8[dstIndex + length - 1] = output8[srcIndex + length - 1];
-                break;
-            case 1:
-                output16[(dstIndex + length - 2) >>> 1] = output16[(srcIndex + length - 2) >>> 1];
-                break;
-            case 2:
-                output16[(dstIndex + length - 2) >>> 1] = output16[(srcIndex + length - 2) >>> 1];
-                output8[dstIndex + length - 1] = output8[srcIndex + length - 1];
-                break;
-            }
-            break;
-        case 6: // 1 vs 2
-            Lz4Decoder._copyUint8(output8, dstIndex, srcIndex, length);
-            break;
-        case 7: // 1 vs 3
-            output8[dstIndex] = output8[srcIndex];
-            Lz4Decoder._copyUint16(output16, (1 + dstIndex) >>> 1, (1 + srcIndex) >>> 1, (length - 1) >>> 1);
-            if ((srcIndex + length) % 2) {
-                output8[dstIndex + length - 1] = output8[srcIndex + length - 1];
-            }
-            break;
-        case 8: // 2 vs 0
-            Lz4Decoder._copyUint16(output16, dstIndex >>> 1, srcIndex >>> 1, length >>> 1);
-            if (length % 2) {
-                output8[dstIndex + length - 1] = output8[srcIndex + length - 1];
-            }
-            break;
-        case 9: // 2 vs 1
-            Lz4Decoder._copyUint8(output8, dstIndex, srcIndex, length);
-            break;
-        case 10: // 2 vs 2
-            output16[dstIndex >>> 1] = output16[srcIndex >>> 1];
-            Lz4Decoder._copyUint32(output32, (2 + dstIndex) >>> 2, (2 + srcIndex) >>> 2, (length - 2) >>> 2);
-            switch (length % 4) {
-            case 0:
-                output16[(dstIndex + length - 2) >>> 1] = output16[(srcIndex + length - 2) >>> 1];
-                break;
-            case 1:
-                output16[(dstIndex + length - 2) >>> 1] = output16[(srcIndex + length - 2) >>> 1];
-                output8[dstIndex + length - 1] = output8[srcIndex + length - 1];
-                break;
-            case 3:
-                output8[dstIndex + length - 1] = output8[srcIndex + length - 1];
-                break;
-            }
-            break;
-        case 11: // 2 vs 3
-            Lz4Decoder._copyUint8(output8, dstIndex, srcIndex, length);
-            break;
-        case 12: // 3 vs 0
-            Lz4Decoder._copyUint8(output8, dstIndex, srcIndex, length);
-            break;
-        case 13: // 3 vs 1
-            output8[dstIndex] = output8[srcIndex];
-            Lz4Decoder._copyUint16(output16, (1 + dstIndex) >>> 1, (1 + srcIndex) >>> 1, (length - 1) >>> 1);
-            if ((srcIndex + length) % 2) {
-                output8[dstIndex + length - 1] = output8[srcIndex + length - 1];
-            }
-            break;
-        case 14: // 3 vs 2
-            Lz4Decoder._copyUint8(output8, dstIndex, srcIndex, length);
-            break;
-        case 15: // 3 vs 3
-            output8[dstIndex] = output8[srcIndex];
-            Lz4Decoder._copyUint32(output32, (1 + dstIndex) >>> 2, (1 + srcIndex) >>> 2, (length - 1) >>> 2);
-            switch (length % 4) {
-            case 0:
-                output16[(dstIndex + length - 2) >>> 1] = output16[(srcIndex + length - 2) >>> 1];
-                output8[dstIndex + length - 1] = output8[srcIndex + length - 1];
-                break;
-            case 2:
-                output8[dstIndex + length - 1] = output8[srcIndex + length - 1];
-                break;
-            case 3:
-                output16[(dstIndex + length - 2) >>> 1] = output16[(srcIndex + length - 2) >>> 1];
-                break;
-            }
-            break;
-        }
-    }
-
-    static function _copyUint8(array : Uint8Array, dstIndex : int, srcIndex : int, length : int) : void {
-        var endIndex = srcIndex + length;
-        while (srcIndex < endIndex) {
-            array[dstIndex++] = array[srcIndex++];
-        }
-    }
-
-    static function _copyUint16(array : Uint16Array, dstIndex : int, srcIndex : int, length : int) : void {
-        var endIndex = srcIndex + length;
-        while (srcIndex < endIndex) {
-            array[dstIndex++] = array[srcIndex++];
-        }
-    }
-
-    static function _copyUint32(array : Uint32Array, dstIndex : int, srcIndex : int, length : int) : void {
-        var endIndex = srcIndex + length;
-        while (srcIndex < endIndex) {
-            array[dstIndex++] = array[srcIndex++];
-        }
     }
 }
